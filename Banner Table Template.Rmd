@@ -1,0 +1,904 @@
+---
+title: "Banner Table Template"
+#author: "Samantha Goldstein"
+#date: "1/29/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE, echo=FALSE}
+library(haven)
+library(tidyverse)
+library(htmlTable)
+library(htmlwidgets)
+library(expss)
+library(survey)
+library(magrittr)
+library(labelled)
+library(questionr)
+library(readxl)
+library(kableExtra)
+library(weights)
+library(conflicted)
+
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+survey <- read_sav("df.sav")
+
+```
+
+```{r, include=FALSE, echo=FALSE}
+
+## Clean and recode data
+survey = survey %>% select(c(-uuid,-psid))
+
+survey = survey %>% mutate(age5 = 2020 - Q58)
+survey = survey %>% mutate(agebreak = case_when(age5 %in% c(17:22)~1,
+                                                age5 %in% c(23:25)~2,
+                                                age5 %in% c(26:29)~3,
+                                                age5 %in% c(30:36)~4))
+
+survey = survey %>% mutate(pid_lean = case_when(Q53==1~1, # Rep
+                                                Q53==2~2, # Dem
+                                                Q53==3 & Q54==3~3, # Indep
+                                                Q53==3 & Q54==1~4, #Lean Rep
+                                                Q53==3 & Q54==2~5 #Lean Dem
+                                                ))
+
+
+survey = survey %>% mutate(educbreak = case_when(Q56%in%c(1:3)~1, # HS or less
+                                           Q56%in%c(4:5)~2, # Some college
+                                           Q56%in%c(6:9)~3)) # College or more
+
+
+survey = survey %>% mutate(race_and_educ = case_when(
+                               Q59==1 & Q56%in%c(1:4) ~ 1, #White non-college
+                               Q59==1 & Q56%in%c(5:9) ~ 2, #White college
+                               Q59==2 & Q56%in%c(1:4) ~ 3, #Black non-college
+                               Q59==2 & Q56%in%c(5:9)~ 4, #Black college
+                               Q59==3 & Q56%in%c(1:4)~ 5, #Asian non-college
+                               Q59==3 & Q56%in%c(5:9)~ 6, #Asian college
+                               Q59==4 & Q56%in%c(1:4)~ 7, #Hispanic non-college
+                               Q59==4 & Q56%in%c(5:9)~ 8)) #Hispanic college
+
+survey = apply_labels(survey, agebreak = c("18-22"=1,
+                                 "23-25"=2,
+                                 "26-29"=3,
+                                 "30-35"=4),
+                      educbreak = "Education", 
+                      educbreak = c("HS or less"=1,
+                                    "Some college"=2,
+                                    "College or more"=3),
+                      pid_lean = "Party ID with Leans",
+                      pid_lean = c("Republican"=1, "Democrat"=2, "Independent"=3, "Lean Republican"=4, "Lean Democrat"=5),
+                      race_and_educ = "Race & Education", 
+                      race_and_educ = c("White non-college"=1,"White college"=2, "Black non-college"=3, "Black college"=4, "Asian non-college"=5,"Asian college"=6, "Hispanic non-college"=7, "Hispanic college"=8),
+                      race = "Race",
+                      race = c("White"=1,"Black"=2,"Hispanic"=3, "Other"=4))
+
+```
+
+```{r, include=FALSE, echo=FALSE}
+banner_tab_1 <- function(question) {
+    cro_cpct(cell_vars = survey[[question]],
+            col_vars = list(total(), 
+                            survey$Q53,
+                            survey$Q64,
+                            survey$race),
+            weight = survey$weight,
+            total_row_position = "none",
+            total_label = "Total (%)") %>%
+      drop_empty_columns() %>%
+      drop_empty_rows()
+}
+
+banner_tab_2 <- function(question) {
+    cro_cpct(cell_vars = survey[[question]],
+            col_vars = list(total(), 
+                            survey$educbreak,
+                            survey$agebreak),
+            weight = survey$weight,
+            total_row_position = "none",
+            total_label = "Total (%)") %>%
+      drop_empty_columns() %>%
+      drop_empty_rows()
+  }
+```
+Q1. Some people are registered to vote and others are not. Are you registered to vote in the precinct or ward where you now live, or aren't you?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q1")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Yes, Registered to Vote","No, Not Registered to Vote","Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q1")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Yes, Registered to Vote","No, Not Registered to Vote","Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q2. What are the chances that you will vote in the November 2020 general election for president, Congress, and other offices—are you absolutely certain to vote, very likely to vote, are the chances 50-50, or don't you think you will vote?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Absolutely certain","Very likely", "50-50", "Will not vote", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Absolutely certain","Very likely", "50-50", "Will not vote", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q3. Over the past year, do you feel the economy has gotten better, gotten worse, or stayed about the same?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q3")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Gotten better","Gotten worse", "Stayed the same", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q3")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Gotten better","Gotten worse", "Stayed the same", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q4.  Some people seem to follow what's going on in politics most of the time, whether there's an election going on or not. Others aren't that interested. Would you say you follow what's going on in politics most of the time, some of the time, only now and then, or hardly at all?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q4")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Most of the time","Some of the time", "Only now and then", "Hardly at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q4")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Most of the time","Some of the time", "Only now and then", "Hardly at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q5. Now, thinking about things in the country, do you think things in the United States are generally going in the right direction, or do you feel things have gotten off on the wrong track?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q5")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Right direction","Wrong track", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q5")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Right direction","Wrong track", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q6. Overall, do you approve or disapprove of the way Donald Trump is handling his job as President? 
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q6")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Approve","Disapprove", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q6")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Approve","Disapprove", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Below are a list of countries that have been in the news recently. For each one, please tell me whether you have a favorable or unfavorable impression of that country
+\newline
+\newline
+Q20. Do you have a favorable or unfavorable impression of Australia?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q20")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Strongly favorable","Somewhat favorable", "Somewhat unfavorable", "unfavorable", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q20")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Strongly favorable","Somewhat favorable", "Somewhat unfavorable", "unfavorable", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q21. Do you have a favorable or unfavorable impression of China?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q21")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Strongly favorable","Somewhat favorable", "Somewhat unfavorable", "unfavorable", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q21")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Strongly favorable","Somewhat favorable", "Somewhat unfavorable", "unfavorable", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q22. Do you have a favorable or unfavorable impression of Russia?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q22")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Strongly favorable","Somewhat favorable", "Somewhat unfavorable", "unfavorable", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q22")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Strongly favorable","Somewhat favorable", "Somewhat unfavorable", "unfavorable", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q24. Do you have a favorable or unfavorable impression of Iran?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q24")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Strongly favorable","Somewhat favorable", "Somewhat unfavorable", "unfavorable", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q24")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Strongly favorable","Somewhat favorable", "Somewhat unfavorable", "unfavorable", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q25. Do you have a favorable or unfavorable impression of England?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q25")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Strongly favorable","Somewhat favorable", "Somewhat unfavorable", "unfavorable", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q25")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Strongly favorable","Somewhat favorable", "Somewhat unfavorable", "unfavorable", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Below are a list of words and phrases that people use to describe different groups of people in American society. For each one, please indicate whether you think that the word describes immigrants very well, pretty well, not too well, or not well at all.
+\newline
+\newline
+Q26. Dishonest
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q26_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q26_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q27. Powerful
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q27_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q27_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q28. Friendly
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q28_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q28_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q29. Serious
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q29_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q29_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q30. Kind
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q30_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q30_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q31. Intelligent
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q31_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q31_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q32. Innovative
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q32_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q32_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q33. Dominating
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q33_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q33_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q34. Warm
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q34_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q34_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q35. Privileged
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q35_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q35_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q36. Selfish
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q36_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q36_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q37. Sneaky
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q37_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q37_2")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very well","Pretty well", "Not too well", "Not well at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+How worried are you about the following aspects of your life – very worried, somewhat worried, not too worried, not worried at all? 
+\newline
+\newline
+Q38. My financial situation
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q38")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very worried","Somewhat worried", "Not too worried", "Not too worried at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q38")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very worried","Somewhat worried", "Not too worried", "Not too worried at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q39. My health and fitness
+```{r, echo=FALSE, format="latex", format="latex"}
+banner_tab_1("Q39")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very worried","Somewhat worried", "Not too worried", "Not too worried at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q39")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very worried","Somewhat worried", "Not too worried", "Not too worried at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q40. My social life
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q40")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very worried","Somewhat worried", "Not too worried", "Not too worried at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q40")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very worried","Somewhat worried", "Not too worried", "Not too worried at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q41. My career
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q41")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very worried","Somewhat worried", "Not too worried", "Not too worried at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q41")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very worried","Somewhat worried", "Not too worried", "Not too worried at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q42. My romantic life
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q42")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very worried","Somewhat worried", "Not too worried", "Not too worried at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q42")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very worried","Somewhat worried", "Not too worried", "Not too worried at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q43. My religious or spiritual life
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q43")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very worried","Somewhat worried", "Not too worried", "Not too worried at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q43")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Very worried","Somewhat worried", "Not too worried", "Not too worried at all", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q44. Which description comes closest to how you would describe yourself?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q44")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("I am always optimistic and rarely worry","I worry at times, but don't usually sweat the little things", "I am neither positive nor do I worry", "I worry more than I would like to, even when I should not", " I worry a lot and experience anxiety")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q44")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("I am always optimistic and rarely worry","I worry at times, but don't usually sweat the little things", "I am neither positive nor do I worry", "I worry more than I would like to, even when I should not", " I worry a lot and experience anxiety")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q45. And, which description comes closest to how you would describe your social life?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q45")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("I am lonely and do not have a good network of friends","I have a few friends, but am not very connected to them", "I have enough good friends, and am ok with my social life", "I have a good social life, and lots of friends", "I have a wonderful social life; I have many good friends and see them often")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q45")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("I am lonely and do not have a good network of friends","I have a few friends, but am not very connected to them", "I have enough good friends, and am ok with my social life", "I have a good social life, and lots of friends", "I have a wonderful social life; I have many good friends and see them often")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q46. How often do you use social media?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q46")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Multiple times a day","Once a day", "A couple times a week","Once a week", "Once a month", "Never")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q46")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("Multiple times a day","Once a day", "A couple times a week","Once a week", "Once a month", "Never")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q47. Which of the following best describes your use of social media?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q47")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("I use social media actively. I post my thoughts and share my emotions", "I use social media passively. I like and share other people’s posts")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q47")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("I use social media actively. I post my thoughts and share my emotions", "I use social media passively. I like and share other people’s posts")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q48 Split A. Which of the following statements come closest to your view, even if neither is exactly right?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q48A")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("World events are the result of unpredictable events", "There is a group of powerful people pulling the strings in secret", "Both", "Neither", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q48A")%>%
+      subset(select = -row_labels) %>%
+      as.data.frame(row.names=c("World events are the result of unpredictable events", "There is a group of powerful people pulling the strings in secret", "Both", "Neither", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q55. If the Democratic primary for president were being held today, for whom would you vote? 
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q55")%>%
+      subset(select = -row_labels)  %>%
+      as.data.frame(row.names=c("Joe Biden","Mike Bloomberg","Pete Buttigieg","Tulsi Gabbard","Amy Klobuchar","Deval Patrick","Bernie Sanders","Tom Steyer","Elizabeth Warren","Andrew Yang","Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q55")%>%
+      subset(select = -row_labels)  %>%
+      as.data.frame(row.names=c("Joe Biden","Mike Bloomberg","Pete Buttigieg","Tulsi Gabbard","Amy Klobuchar","Deval Patrick","Bernie Sanders","Tom Steyer","Elizabeth Warren","Andrew Yang","Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q56. What is the highest level of education you completed?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q56")%>%
+      subset(select = -row_labels)  %>%
+      as.data.frame(row.names=c("Elementary school only",
+"Some high school / Did not finish",
+"Completed high school",
+"Some college but didn't finish",
+"Two year college degree / A.A. / A.S.",
+"Four year college degree / B.A. / B.S.",
+"Some graduate work",
+"Completed masters or professional degree",
+"Advanced graduate work or Ph.D",
+"Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q56")%>%
+      subset(select = -row_labels)  %>%
+      as.data.frame(row.names=c("Elementary school only",
+"Some high school / Did not finish",
+"Completed high school",
+"Some college but didn't finish",
+"Two year college degree / A.A. / A.S.",
+"Four year college degree / B.A. / B.S.",
+"Some graduate work",
+"Completed masters or professional degree",
+"Advanced graduate work or Ph.D",
+"Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q57. Are you currently married, widowed, divorced, separated, or have you never been married?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q57")%>%
+      subset(select = -row_labels)  %>%
+      as.data.frame(row.names=c("Married", "Widowed","Divorced","Separated","Never been married", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q57")%>%
+      subset(select = -row_labels)  %>%
+      as.data.frame(row.names=c("Married", "Widowed","Divorced","Separated","Never been married", "Don't know"))%>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q59. Would you describe yourself as?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q59")%>%
+      subset(select = -row_labels)  %>%
+      as.data.frame(row.names=c("White", "African American or Black","Asian, or South Asian or Pacific Islander","Hispanic or Latino","Native American or American Indian", "Other (specify)", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q59")%>%
+      subset(select = -row_labels)  %>%
+      as.data.frame(row.names=c("White", "African American or Black","Asian, or South Asian or Pacific Islander","Hispanic or Latino","Native American or American Indian", "Other (specify)", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q60. Are you of Hispanic or Latino origin or background?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q60") %>%
+      subset(select = -row_labels)  %>%
+      as.data.frame(row.names=c("Yes", "No")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q60")%>%
+      subset(select = -row_labels)  %>%
+      as.data.frame(row.names=c("Yes", "No")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q61. What is your current religion, if any?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q61")%>%
+      subset(select = -row_labels)  %>%
+      as.data.frame(row.names=c("Protestant",
+"Roman Catholic (Catholic)",
+"Jewish (Judaism)",
+"Muslim (Islam)",
+"Buddhist",
+"Hindu",
+"Atheist (do not believe in God)",
+"Agnostic (not sure if there is a God)",
+"Something else",
+"Or nothing in particular",
+"Don't Know/Refused")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q61")%>%
+      subset(select = -row_labels)  %>%
+      as.data.frame(row.names=c("Protestant",
+"Roman Catholic (Catholic)",
+"Jewish (Judaism)",
+"Muslim (Islam)",
+"Buddhist",
+"Hindu",
+"Atheist (do not believe in God)",
+"Agnostic (not sure if there is a God)",
+"Something else",
+"Or nothing in particular",
+"Don't Know/Refused")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q62. Would you consider yourself a born-again or evangelical Christian, or not?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q62")%>%
+      subset(select = -row_labels)  %>%
+      as.data.frame(row.names=c("Yes", "No", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q62")%>%
+      subset(select = -row_labels)   %>%
+      as.data.frame(row.names=c("Yes", "No", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Q63. Aside from weddings and funerals, how often do you attend religious services?
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q63")%>%
+      subset(select = -row_labels)  %>%
+      as.data.frame(row.names=c("Once a week or more","Once or twice a month", "A few times a year", "Seldom", "Never", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q63")%>%
+      subset(select = -row_labels)   %>%
+      as.data.frame(row.names=c("Once a week or more","Once or twice a month", "A few times a year", "Seldom", "Never", "Don't know")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Party ID with Leans
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("pid_lean")%>%
+      subset(select = -row_labels)  %>%
+      as.data.frame(row.names=c("Republican","Democrat", "Independent", "Lean Republican", "Lean Democrat")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("pid_lean")%>%
+      subset(select = -row_labels)   %>%
+      as.data.frame(row.names=c("Republican","Democrat", "Independent", "Lean Republican", "Lean Democrat")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
+\newpage
+Gender
+```{r, echo=FALSE, format="latex"}
+banner_tab_1("Q64")%>%
+      subset(select = -row_labels)  %>%
+      as.data.frame(row.names=c("Male", "Female")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "Republican", "Democrat",  "Independent", "Male", "Female", "White", "Black", "Hispanic", "Other")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left", fixed_thead = T)
+
+banner_tab_2("Q64")%>%
+      subset(select = -row_labels)   %>%
+      as.data.frame(row.names=c("Male", "Female")) %>%
+      kable(booktabs=TRUE, digits = 2, col.names = c("Total", "HS or Less", "Some College",  "College or More", "18-22", "23-25", "26-29","30-35")) %>%
+      kable_styling(latex_options = c("scale_down"),
+                    position="left",  fixed_thead = T)
+```
